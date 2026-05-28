@@ -1,6 +1,6 @@
 {
   "name": "robocopier",
-  "version": "1.0.10",
+  "version": "1.0.11",
   "description": "RoboCopier - portable folder mirroring utility with Detroit P.D. styling",
   "main": "src/main.js",
   "author": "Cris Isaaks",

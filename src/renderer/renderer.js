@@ -288,8 +288,8 @@ async function submitModal() {
   let schedule = null;
   if (schedType !== 'none') {
     const time = $('#fSchedTime').value.trim();
-    if (!/^\d{2}:\d{2}$/.test(time)) {
-      return window.api.dialog.warn('Time must be HH:MM (e.g. 08:00 or 20:30).', 'Invalid time');
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) {
+      return window.api.dialog.warn('Time must be HH:MM in 24-hour format (e.g. 08:00 or 20:30). Hour 00-23, minute 00-59.', 'Invalid time');
     }
     schedule = {
       type: schedType,
