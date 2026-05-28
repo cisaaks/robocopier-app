@@ -166,6 +166,25 @@ function attachHandlers() {
   $('#fSchedType').addEventListener('change', syncScheduleFields);
 
   $('#updateBannerDismiss').addEventListener('click', () => $('#updateBanner').hidden = true);
+
+  // Help modal
+  $('#btnHelp').addEventListener('click', () => { $('#helpModal').hidden = false; });
+  $('#helpClose').addEventListener('click', () => { $('#helpModal').hidden = true; });
+  $('#helpDone').addEventListener('click', () => { $('#helpModal').hidden = true; });
+
+  // Close any open modal by clicking its dark backdrop
+  $$('.modal').forEach(m => {
+    m.addEventListener('click', (e) => {
+      if (e.target === m) m.hidden = true; // clicked backdrop, not the card
+    });
+  });
+
+  // ESC closes any open modal
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      $$('.modal').forEach(m => { if (!m.hidden) m.hidden = true; });
+    }
+  });
 }
 
 async function changeDefault() {
@@ -331,23 +350,4 @@ async function submitModal() {
 
 // ============================================================
 // Update banner
-// ============================================================
-
-function attachUpdateListener() {
-  window.api.on('update-status', (data) => {
-    const banner = $('#updateBanner');
-    const text = $('#updateBannerText');
-    if (data.status === 'available') {
-      text.textContent = `Update available: v${data.version} - downloading...`;
-      banner.hidden = false;
-    } else if (data.status === 'downloading') {
-      text.textContent = `Downloading update... ${data.percent}%`;
-    } else if (data.status === 'ready') {
-      text.textContent = `Update ${data.version} ready - restart to apply`;
-    }
-  });
-  window.api.on('tasks-updated', async () => {
-    cfg = await window.api.config.get();
-    renderTaskList();
-  });
-}
+// =============================================

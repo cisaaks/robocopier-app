@@ -16,6 +16,7 @@
         <span class="tagline">ONLINE / FILE TRANSFER PROTOCOL / DETROIT P.D.</span>
       </div>
       <div class="header-right">
+        <button class="help-btn" id="btnHelp" title="How to use RoboCopier">?</button>
         <span class="badge">BADGE 08</span>
         <span class="version" id="appVersion">v1.0.0</span>
       </div>
@@ -135,12 +136,8 @@
     </div>
   </div>
 
-  <!-- Update banner -->
-  <div class="update-banner" id="updateBanner" hidden>
-    <span id="updateBannerText">Update available</span>
-    <button class="btn-secondary" id="updateBannerDismiss">x</button>
-  </div>
-
-  <script src="renderer.js"></script>
-</body>
-</html>
+  <!-- Help / instructions modal -->
+  <div class="modal" id="helpModal" hidden>
+    <div class="modal-card help-card">
+      <div class="modal-header">
+        <h2>How to use RoboCop

@@ -56,13 +56,15 @@
     .status {
       position: absolute;
       left: 0; right: 0;
-      bottom: 32px;
+      top: 12px;
       text-align: center;
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 700;
-      letter-spacing: 2px;
-      color: rgba(253, 224, 71, 0.9);
-      text-shadow: 0 0 6px rgba(0,0,0,0.85);
+      letter-spacing: 3px;
+      color: rgba(253, 224, 71, 0.95);
+      text-shadow: 0 0 8px rgba(0,0,0,0.95), 0 0 3px rgba(0,0,0,1);
+      background: linear-gradient(180deg, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0) 100%);
+      padding: 6px 0 14px;
     }
   </style>
 </head>
@@ -80,9 +82,4 @@
     let i = 0;
     const interval = setInterval(() => {
       i++;
-      if (i >= messages.length) { clearInterval(interval); return; }
-      status.textContent = messages[i];
-    }, 800);
-  </script>
-</body>
-</html>
+      if (i >= mess
