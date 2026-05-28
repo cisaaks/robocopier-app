@@ -279,15 +279,33 @@ function registerAutoUpdater() {
     }).then(r => {
       if (r.response === 0) {
         app.isQuitting = true;
-        autoUpdater.quitAndInstall();
+        // Aggressively tear down everything before the installer runs.
+        // NSIS can't replace the .exe while the process is alive, and Electron
+        // has multiple helper processes that need to go.
+        try {
+          for (const w of BrowserWindow.getAllWindows()) {
+            try { w.destroy(); } catch {}
+          }
+          if (tray && !tray.isDestroyed()) {
+            try { tray.destroy(); } catch {}
+          }
+        } catch (e) { log.error('Teardown error:', e); }
+        // Brief delay to let the OS release handles, then hand off to the installer.
+        // isForceRunAfter=true makes the new version launch when install finishes.
+        setTimeout(() => {
+          autoUpdater.quitAndInstall(true, true);
+        }, 300);
       }
     });
   });
 
-  // Check on startup (after a brief delay so the UI shows first)
-  setTimeout(() => {
+  // Check on startup (after a brief delay so the UI shows first),
+  // then every 30 minutes for long-running app instances.
+  const doCheck = () => {
     if (!isDev) autoUpdater.checkForUpdatesAndNotify().catch(e => log.error(e));
-  }, 5000);
+  };
+  setTimeout(doCheck, 5000);
+  setInterval(doCheck, 30 * 60 * 1000);
 }
 
 // ============================================================
@@ -323,33 +341,4 @@ async function runCliMode() {
     if (!r.success) anyFail = true;
   }
   configStore.save();
-  Telemetry.report({ version: app.getVersion(), event: 'cli-refresh' }).catch(() => {});
-  app.exit(anyFail ? 1 : 0);
-}
-
-// ============================================================
-// App lifecycle
-// ============================================================
-
-app.on('ready', () => {
-  if (isCliMode()) {
-    runCliMode().catch(e => { log.error(e); app.exit(1); });
-    return;
-  }
-
-  configStore = new ConfigStore(getConfigPath());
-
-  createSplash();
-  setTimeout(createMainWindow, 1800);
-  createTray();
-  registerIpc();
-  if (!isDev) registerAutoUpdater();
-
-  // Fire telemetry on launch (non-blocking)
-  Telemetry.report({ version: app.getVersion(), event: 'launch' }).catch(e => log.warn('telemetry:', e?.message));
-});
-
-app.on('window-all-closed', (e) => {
-  // Don't quit when last window closes - keep tray running.
-  // BUT if we're actually quitting (user picked Quit, or auto-updater fired
-  // q
+  Telemetry.report({ version: app.getVersion(), event: 'cli-refre
