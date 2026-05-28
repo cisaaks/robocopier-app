@@ -110,6 +110,21 @@ function createMainWindow() {
 
   mainWindow.on('closed', () => { mainWindow = null; });
 
+  // F12 toggles DevTools in any build (dev or installed) so we can debug renderer issues.
+  mainWindow.webContents.on('before-input-event', (e, input) => {
+    if (input.type === 'keyDown' && input.key === 'F12') {
+      mainWindow.webContents.toggleDevTools();
+    }
+  });
+
+  // Log any uncaught renderer crashes to the main log file
+  mainWindow.webContents.on('render-process-gone', (e, details) => {
+    log.error('Renderer process gone:', details);
+  });
+  mainWindow.webContents.on('preload-error', (e, preloadPath, err) => {
+    log.error('Preload error:', preloadPath, err);
+  });
+
   if (isDev) mainWindow.webContents.openDevTools({ mode: 'detach' });
 }
 
@@ -294,26 +309,4 @@ async function runCliMode() {
     if (!r.success) anyFail = true;
   }
   configStore.save();
-  Telemetry.report({ version: APP_VERSION, event: 'cli-refresh' }).catch(() => {});
-  app.exit(anyFail ? 1 : 0);
-}
-
-// ============================================================
-// App lifecycle
-// ============================================================
-
-app.on('ready', () => {
-  if (isCliMode()) {
-    runCliMode().catch(e => { log.error(e); app.exit(1); });
-    return;
-  }
-
-  configStore = new ConfigStore(getConfigPath());
-
-  createSplash();
-  setTimeout(createMainWindow, 1800);
-  registerIpc();
-  if (!isDev) registerAutoUpdater();
-
-  // Fire telemetry on launch (non-blocking)
-  Telemetry.report({ version: APP_VERSION,
+  Telemetry.report({ version: APP_VERSION, 
