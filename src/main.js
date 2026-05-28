@@ -350,8 +350,6 @@ app.on('ready', () => {
 });
 
 app.on('window-all-closed', (e) => {
-  // Don't quit when last window closes - keep tray running
-  e.preventDefault();
-});
-
-app.on('before-quit', () => { app.isQuitting = true; });
+  // Don't quit when last window closes - keep tray running.
+  // BUT if we're actually quitting (user picked Quit, or auto-updater fired
+  // q
