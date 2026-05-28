@@ -6,7 +6,7 @@ const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 
 let cfg = null;
 let selectedTaskNames = new Set();
-let editingTaskName = null; // null = add mode, otherwise editing
+let editingTaskName = null;
 
 const COLORS = {
   green:  'last-recent',
@@ -14,16 +14,16 @@ const COLORS = {
   red:    'last-old',
 };
 
-// ============================================================
-// Boot
-// ============================================================
-
 async function boot() {
-  cfg = await window.api.config.get();
+  try {
+    cfg = await window.api.config.get();
+  } catch (e) {
+    console.error('config.get failed:', e);
+    cfg = { defaultDestinationRoot: '', tasks: [], warnFileCount: 200, warnSizeMB: 200 };
+  }
   try {
     const v = await window.api.app.version();
-    if (v) $('#appVersion').textContent = 'v' + v;
-    else $('#appVersion').textContent = 'v?';
+    $('#appVersion').textContent = v ? ('v' + v) : 'v?';
   } catch (e) {
     $('#appVersion').textContent = 'v?';
   }
@@ -35,20 +35,17 @@ async function boot() {
 
 window.addEventListener('DOMContentLoaded', boot);
 
-// ============================================================
-// Rendering
-// ============================================================
-
 function renderDefaultDest() {
-  $('#defaultDestPath').value = cfg.defaultDestinationRoot;
+  const el = $('#defaultDestPath');
+  if (el) el.value = cfg.defaultDestinationRoot || '';
 }
 
 function scheduleSummary(s) {
   if (!s || !s.type || s.type === 'none') return 'None';
   const t = s.time || '??:??';
-  if (s.type === 'daily')   return `Daily ${t}`;
-  if (s.type === 'weekly')  return `Weekly ${s.dayOfWeek || '?'} ${t}`;
-  if (s.type === 'monthly') return `Monthly day ${s.dayOfMonth || '?'} ${t}`;
+  if (s.type === 'daily')   return 'Daily ' + t;
+  if (s.type === 'weekly')  return 'Weekly ' + (s.dayOfWeek || '?') + ' ' + t;
+  if (s.type === 'monthly') return 'Monthly day ' + (s.dayOfMonth || '?') + ' ' + t;
   return 'None';
 }
 
@@ -65,53 +62,47 @@ function ageBucket(lr) {
 
 function destFor(task) {
   if (task.destinationOverride) return task.destinationOverride;
-  // Mimic path.join behavior - use forward slashes for display
-  return cfg.defaultDestinationRoot.replace(/\\$/, '') + '\\' + task.name;
-}
-
-function renderTaskList() {
-  const tbody = $('#taskTbody');
-  const empty = $('#emptyState');
-  tbody.innerHTML = '';
-  const tasks = cfg.tasks || [];
-
-  if (tasks.length === 0) {
-    empty.hidden = false;
-    refreshButtonStates();
-    return;
-  }
-  empty.hidden = true;
-
-  for (const t of tasks) {
-    const tr = document.createElement('tr');
-    tr.dataset.name = t.name;
-    if (selectedTaskNames.has(t.name)) tr.classList.add('selected');
-
-    const mode = t.mode || 'replace';
-    const sched = scheduleSummary(t.schedule);
-    const lr = t.lastRefreshed || 'never';
-    const ageCls = lr === 'never' ? 'last-old' : COLORS[ageBucket(lr)];
-
-    tr.innerHTML = `
-      <td>${esc(t.name)}</td>
-      <td class="muted">${esc(t.source)}</td>
-      <td class="muted">${esc(destFor(t))}</td>
-      <td class="mode-${mode}">${mode.toUpperCase()}</td>
-      <td class="${sched === 'None' ? 'sched-none' : 'sched-set'}">${esc(sched)}</td>
-      <td class="${ageCls}">${esc(lr)}</td>
-    `;
-
-    tr.addEventListener('click', (e) => onRowClick(e, t.name));
-    tr.addEventListener('dblclick', () => onEdit());
-
-    tbody.appendChild(tr);
-  }
-  refreshButtonStates();
+  return (cfg.defaultDestinationRoot || '').replace(/\\$/, '') + '\\' + task.name;
 }
 
 function esc(s) {
   if (s == null) return '';
   return String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+}
+
+function renderTaskList() {
+  const tbody = $('#taskTbody');
+  const empty = $('#emptyState');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+  const tasks = cfg.tasks || [];
+  if (tasks.length === 0) {
+    if (empty) empty.hidden = false;
+    refreshButtonStates();
+    return;
+  }
+  if (empty) empty.hidden = true;
+
+  for (const t of tasks) {
+    const tr = document.createElement('tr');
+    tr.dataset.name = t.name;
+    if (selectedTaskNames.has(t.name)) tr.classList.add('selected');
+    const mode = t.mode || 'replace';
+    const sched = scheduleSummary(t.schedule);
+    const lr = t.lastRefreshed || 'never';
+    const ageCls = lr === 'never' ? 'last-old' : COLORS[ageBucket(lr)];
+    tr.innerHTML =
+      '<td>' + esc(t.name) + '</td>' +
+      '<td class="muted">' + esc(t.source) + '</td>' +
+      '<td class="muted">' + esc(destFor(t)) + '</td>' +
+      '<td class="mode-' + mode + '">' + mode.toUpperCase() + '</td>' +
+      '<td class="' + (sched === 'None' ? 'sched-none' : 'sched-set') + '">' + esc(sched) + '</td>' +
+      '<td class="' + ageCls + '">' + esc(lr) + '</td>';
+    tr.addEventListener('click', (e) => onRowClick(e, t.name));
+    tr.addEventListener('dblclick', () => onEdit());
+    tbody.appendChild(tr);
+  }
+  refreshButtonStates();
 }
 
 function onRowClick(e, name) {
@@ -140,10 +131,6 @@ function setStatus(text, level) {
   if (level === 'err')  dot.classList.add('err');
 }
 
-// ============================================================
-// Handlers
-// ============================================================
-
 function attachHandlers() {
   $('#btnChangeDefault').addEventListener('click', changeDefault);
   $('#btnAdd').addEventListener('click', () => openModal(null));
@@ -152,8 +139,8 @@ function attachHandlers() {
   $('#btnRefreshSel').addEventListener('click', onRefreshSelected);
   $('#btnRefreshAll').addEventListener('click', onRefreshAll);
 
-  $('#modalClose').addEventListener('click', closeModal);
-  $('#modalCancel').addEventListener('click', closeModal);
+  $('#modalClose').addEventListener('click', closeTaskModal);
+  $('#modalCancel').addEventListener('click', closeTaskModal);
   $('#modalOk').addEventListener('click', submitModal);
 
   $('#fOverride').addEventListener('change', (e) => {
@@ -170,21 +157,16 @@ function attachHandlers() {
   });
   $('#fSchedType').addEventListener('change', syncScheduleFields);
 
-  $('#updateBannerDismiss').addEventListener('click', () => $('#updateBanner').hidden = true);
-
-  // Help modal
+  $('#updateBannerDismiss').addEventListener('click', () => { $('#updateBanner').hidden = true; });
   $('#btnHelp').addEventListener('click', () => { $('#helpModal').hidden = false; });
   $('#helpClose').addEventListener('click', () => { $('#helpModal').hidden = true; });
   $('#helpDone').addEventListener('click', () => { $('#helpModal').hidden = true; });
 
-  // Close any open modal by clicking its dark backdrop
   $$('.modal').forEach(m => {
     m.addEventListener('click', (e) => {
-      if (e.target === m) m.hidden = true; // clicked backdrop, not the card
+      if (e.target === m) m.hidden = true;
     });
   });
-
-  // ESC closes any open modal
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
       $$('.modal').forEach(m => { if (!m.hidden) m.hidden = true; });
@@ -213,7 +195,7 @@ async function onRemove() {
   const names = Array.from(selectedTaskNames);
   if (names.length === 0) return;
   const ok = await window.api.dialog.confirm(
-    `Remove these tasks?\n\n${names.join(', ')}\n\nAlso deletes any Windows scheduled-task entries the app created for them. Does NOT delete files already mirrored.`,
+    'Remove these tasks?\n\n' + names.join(', ') + '\n\nAlso deletes any Windows scheduled-task entries the app created for them. Does NOT delete files already mirrored.',
     'Confirm remove'
   );
   if (!ok) return;
@@ -222,7 +204,7 @@ async function onRemove() {
     cfg = await window.api.config.get();
     selectedTaskNames.clear();
     renderTaskList();
-    setStatus(`Removed: ${names.join(', ')}`);
+    setStatus('Removed: ' + names.join(', '));
   }
 }
 
@@ -239,53 +221,44 @@ async function onRefreshAll() {
 }
 
 async function runRefresh(names) {
-  setStatus(`Refreshing: ${names.join(', ')}...`);
+  setStatus('Refreshing: ' + names.join(', ') + '...');
   const results = await window.api.tasks.refresh(names);
-  cfg = await window.api.config.get(); // pull updated lastRefreshed
+  cfg = await window.api.config.get();
   renderTaskList();
   const ok = results.filter(r => r.success).length;
   const fail = results.length - ok;
-  setStatus(`Refresh done - ${ok} ok, ${fail} failed.`, fail > 0 ? 'warn' : null);
+  setStatus('Refresh done - ' + ok + ' ok, ' + fail + ' failed.', fail > 0 ? 'warn' : null);
   for (const r of results) {
     if (!r.success) {
-      await window.api.dialog.warn(`${r.name}: ${r.message}`, 'Refresh failed');
+      await window.api.dialog.warn(r.name + ': ' + r.message, 'Refresh failed');
     }
   }
 }
 
-// ============================================================
-// Modal
-// ============================================================
-
 function openModal(task) {
   editingTaskName = task ? task.name : null;
   $('#modalTitle').textContent = task ? 'Edit task' : 'Add task';
-
-  $('#fName').value = task?.name || '';
+  $('#fName').value = task ? task.name : '';
   $('#fName').disabled = !!task;
-  $('#fSource').value = task?.source || '';
-
+  $('#fSource').value = task ? (task.source || '') : '';
   const hasOverride = !!(task && task.destinationOverride);
   $('#fOverride').checked = hasOverride;
-  $('#fDest').value = task?.destinationOverride || '';
+  $('#fDest').value = task && task.destinationOverride ? task.destinationOverride : '';
   $('#fDest').disabled = !hasOverride;
   $('#fDestBrowse').disabled = !hasOverride;
-
-  const mode = task?.mode || 'replace';
+  const mode = (task && task.mode) || 'replace';
   $$('input[name=fMode]').forEach(r => { r.checked = (r.value === mode); });
-
-  const s = task?.schedule || { type: 'none' };
+  const s = (task && task.schedule) || { type: 'none' };
   $('#fSchedType').value = s.type || 'none';
   $('#fSchedTime').value = s.time || '08:00';
   $('#fSchedDow').value = s.dayOfWeek || 'SUN';
   $('#fSchedDom').value = s.dayOfMonth || 1;
   syncScheduleFields();
-
   $('#taskModal').hidden = false;
   setTimeout(() => $('#fName').focus(), 50);
 }
 
-function closeModal() {
+function closeTaskModal() {
   $('#taskModal').hidden = true;
 }
 
@@ -304,7 +277,8 @@ async function submitModal() {
   const source = $('#fSource').value.trim();
   const useOverride = $('#fOverride').checked;
   const destOverride = $('#fDest').value.trim();
-  const mode = ($$('input[name=fMode]:checked')[0]?.value) || 'replace';
+  const checked = $$('input[name=fMode]:checked')[0];
+  const mode = checked ? checked.value : 'replace';
 
   if (!name) return window.api.dialog.warn('Task name is required.', 'Missing field');
   if (!source) return window.api.dialog.warn('Source folder is required.', 'Missing field');
@@ -319,27 +293,25 @@ async function submitModal() {
     }
     schedule = {
       type: schedType,
-      time,
+      time: time,
       dayOfWeek:  schedType === 'weekly'  ? $('#fSchedDow').value : null,
       dayOfMonth: schedType === 'monthly' ? Number($('#fSchedDom').value) : null,
     };
   }
 
+  const existing = editingTaskName ? (cfg.tasks || []).find(t => t.name === editingTaskName) : null;
   const task = {
-    name,
-    source,
+    name: name,
+    source: source,
     destinationOverride: useOverride ? destOverride : null,
-    mode,
-    schedule,
-    lastRefreshed: editingTaskName ? (cfg.tasks.find(t => t.name === editingTaskName)?.lastRefreshed || null) : null,
+    mode: mode,
+    schedule: schedule,
+    lastRefreshed: existing ? existing.lastRefreshed : null,
   };
 
-  let result;
-  if (editingTaskName) {
-    result = await window.api.tasks.update(editingTaskName, task);
-  } else {
-    result = await window.api.tasks.add(task);
-  }
+  const result = editingTaskName
+    ? await window.api.tasks.update(editingTaskName, task)
+    : await window.api.tasks.add(task);
 
   if (!result.success) {
     return window.api.dialog.warn(result.message || 'Could not save', 'Save failed');
@@ -348,9 +320,28 @@ async function submitModal() {
   cfg = await window.api.config.get();
   selectedTaskNames = new Set([name]);
   renderTaskList();
-  closeModal();
-  const sm = result.scheduleResult?.message || 'saved';
-  setStatus(`${editingTaskName ? 'Updated' : 'Added'} task: ${name} | ${sm}`);
+  closeTaskModal();
+  const sm = (result.scheduleResult && result.scheduleResult.message) || 'saved';
+  setStatus((editingTaskName ? 'Updated' : 'Added') + ' task: ' + name + ' | ' + sm);
 }
 
-// 
+function attachUpdateListener() {
+  if (!window.api || !window.api.on) return;
+  window.api.on('update-status', (data) => {
+    const banner = $('#updateBanner');
+    const text = $('#updateBannerText');
+    if (!banner || !text) return;
+    if (data.status === 'available') {
+      text.textContent = 'Update available: v' + data.version + ' - downloading...';
+      banner.hidden = false;
+    } else if (data.status === 'downloading') {
+      text.textContent = 'Downloading update... ' + data.percent + '%';
+    } else if (data.status === 'ready') {
+      text.textContent = 'Update ' + data.version + ' ready - restart to apply';
+    }
+  });
+  window.api.on('tasks-updated', async () => {
+    cfg = await window.api.config.get();
+    renderTaskList();
+  });
+}
