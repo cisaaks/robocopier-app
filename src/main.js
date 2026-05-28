@@ -1,7 +1,7 @@
 // RoboCopier - main Electron process
 // Handles window creation, splash screen, auto-update, IPC bridges to renderer.
 
-const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, dialog, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const log = require('electron-log');
@@ -21,7 +21,6 @@ const isDev = process.argv.includes('--dev') || !app.isPackaged;
 
 let mainWindow = null;
 let splashWindow = null;
-let tray = null;
 let configStore = null;
 
 // ============================================================
@@ -104,46 +103,9 @@ function createMainWindow() {
     mainWindow.show();
   });
 
-  mainWindow.on('close', (e) => {
-    // Minimize to tray instead of closing
-    if (!app.isQuitting) {
-      e.preventDefault();
-      mainWindow.hide();
-    }
-  });
-
   mainWindow.on('closed', () => { mainWindow = null; });
 
   if (isDev) mainWindow.webContents.openDevTools({ mode: 'detach' });
-}
-
-// ============================================================
-// System tray
-// ============================================================
-
-function createTray() {
-  const iconPath = getResourcePath('icon.ico');
-  const trayIcon = nativeImage.createFromPath(iconPath);
-  tray = new Tray(trayIcon);
-  tray.setToolTip('RoboCopier');
-  const menu = Menu.buildFromTemplate([
-    { label: 'Open RoboCopier', click: () => { if (mainWindow) mainWindow.show(); } },
-    { type: 'separator' },
-    { label: 'Refresh all tasks', click: async () => {
-        const cfg = configStore.get();
-        for (const t of cfg.tasks || []) {
-          await Refresh.runTask(t, cfg, false);
-        }
-        configStore.save();
-        if (mainWindow) mainWindow.webContents.send('tasks-updated');
-    }},
-    { type: 'separator' },
-    { label: 'Check for updates', click: () => autoUpdater.checkForUpdatesAndNotify() },
-    { type: 'separator' },
-    { label: 'Quit', click: () => { app.isQuitting = true; app.quit(); } },
-  ]);
-  tray.setContextMenu(menu);
-  tray.on('double-click', () => { if (mainWindow) mainWindow.show(); });
 }
 
 // ============================================================
@@ -278,23 +240,9 @@ function registerAutoUpdater() {
       cancelId: 1,
     }).then(r => {
       if (r.response === 0) {
-        app.isQuitting = true;
-        // Aggressively tear down everything before the installer runs.
-        // NSIS can't replace the .exe while the process is alive, and Electron
-        // has multiple helper processes that need to go.
-        try {
-          for (const w of BrowserWindow.getAllWindows()) {
-            try { w.destroy(); } catch {}
-          }
-          if (tray && !tray.isDestroyed()) {
-            try { tray.destroy(); } catch {}
-          }
-        } catch (e) { log.error('Teardown error:', e); }
-        // Brief delay to let the OS release handles, then hand off to the installer.
+        // No tray, no minimize-to-tray, so quit cleanly and let NSIS replace the .exe.
         // isForceRunAfter=true makes the new version launch when install finishes.
-        setTimeout(() => {
-          autoUpdater.quitAndInstall(true, true);
-        }, 300);
+        autoUpdater.quitAndInstall(true, true);
       }
     });
   });
@@ -341,4 +289,33 @@ async function runCliMode() {
     if (!r.success) anyFail = true;
   }
   configStore.save();
-  Telemetry.report({ version: app.getVersion(), event: 'cli-refre
+  Telemetry.report({ version: app.getVersion(), event: 'cli-refresh' }).catch(() => {});
+  app.exit(anyFail ? 1 : 0);
+}
+
+// ============================================================
+// App lifecycle
+// ============================================================
+
+app.on('ready', () => {
+  if (isCliMode()) {
+    runCliMode().catch(e => { log.error(e); app.exit(1); });
+    return;
+  }
+
+  configStore = new ConfigStore(getConfigPath());
+
+  createSplash();
+  setTimeout(createMainWindow, 1800);
+  registerIpc();
+  if (!isDev) registerAutoUpdater();
+
+  // Fire telemetry on launch (non-blocking)
+  Telemetry.report({ version: app.getVersion(), event: 'launch' }).catch(e => log.warn('telemetry:', e?.message));
+});
+
+// Standard Windows app behavior: when all windows close, quit the app.
+// No tray to keep alive, no fancy minimize-on-close behavior.
+app.on('window-all-closed', () => {
+  app.quit();
+});
