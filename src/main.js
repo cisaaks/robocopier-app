@@ -7,6 +7,11 @@ const fs = require('fs');
 const log = require('electron-log');
 const { autoUpdater } = require('electron-updater');
 
+// Read version directly from package.json so we don't rely on app.getVersion()
+// (which has been flaky in builds with file-system corruption history).
+const PKG = require('../package.json');
+const APP_VERSION = PKG.version || app.getVersion() || 'unknown';
+
 const ConfigStore = require('./core/config');
 const Refresh = require('./core/refresh');
 const Schedule = require('./core/schedule');
@@ -84,7 +89,7 @@ function createMainWindow() {
     height: 680,
     minWidth: 880,
     minHeight: 560,
-    title: 'RoboCopier',
+    title: `RoboCopier  v${APP_VERSION}`,
     icon: getResourcePath('icon.ico'),
     backgroundColor: '#08090d',
     show: false,
@@ -202,7 +207,7 @@ function registerIpc() {
     });
   });
 
-  ipcMain.handle('app:version', () => app.getVersion());
+  ipcMain.handle('app:version', () => APP_VERSION);
   ipcMain.handle('app:check-updates', () => autoUpdater.checkForUpdatesAndNotify());
   ipcMain.handle('shell:open-folder', (_e, p) => shell.openPath(p));
 }
@@ -289,7 +294,7 @@ async function runCliMode() {
     if (!r.success) anyFail = true;
   }
   configStore.save();
-  Telemetry.report({ version: app.getVersion(), event: 'cli-refresh' }).catch(() => {});
+  Telemetry.report({ version: APP_VERSION, event: 'cli-refresh' }).catch(() => {});
   app.exit(anyFail ? 1 : 0);
 }
 
@@ -311,11 +316,4 @@ app.on('ready', () => {
   if (!isDev) registerAutoUpdater();
 
   // Fire telemetry on launch (non-blocking)
-  Telemetry.report({ version: app.getVersion(), event: 'launch' }).catch(e => log.warn('telemetry:', e?.message));
-});
-
-// Standard Windows app behavior: when all windows close, quit the app.
-// No tray to keep alive, no fancy minimize-on-close behavior.
-app.on('window-all-closed', () => {
-  app.quit();
-});
+  Telemetry.report({ version: APP_VERSION,
