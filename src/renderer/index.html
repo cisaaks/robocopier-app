@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>RoboCopier</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <header class="app-header">
+    <div class="scanlines"></div>
+    <div class="header-inner">
+      <div class="brand">
+        <h1 class="title">ROBOCOPIER</h1>
+        <span class="led"></span>
+        <span class="tagline">ONLINE / FILE TRANSFER PROTOCOL / DETROIT P.D.</span>
+      </div>
+      <div class="header-right">
+        <span class="badge">BADGE 08</span>
+        <span class="version" id="appVersion">v1.0.0</span>
+      </div>
+    </div>
+    <div class="hazard-stripe"></div>
+  </header>
+
+  <section class="default-dest">
+    <label>Default destination:</label>
+    <input type="text" id="defaultDestPath" readonly />
+    <button class="btn-secondary" id="btnChangeDefault">Change...</button>
+  </section>
+
+  <main class="task-list-wrap">
+    <table class="task-table">
+      <thead>
+        <tr>
+          <th class="col-name">TASK NAME</th>
+          <th class="col-source">SOURCE</th>
+          <th class="col-dest">DESTINATION</th>
+          <th class="col-mode">MODE</th>
+          <th class="col-sched">SCHEDULE</th>
+          <th class="col-last">LAST REFRESHED</th>
+        </tr>
+      </thead>
+      <tbody id="taskTbody"></tbody>
+    </table>
+    <div class="empty-state" id="emptyState" hidden>
+      <div class="empty-icon">+</div>
+      <p>No tasks yet. Click "Add task" below to create your first one.</p>
+    </div>
+  </main>
+
+  <footer class="action-bar">
+    <button class="btn-secondary" id="btnAdd">Add task</button>
+    <button class="btn-secondary" id="btnEdit" disabled>Edit</button>
+    <button class="btn-secondary" id="btnRemove" disabled>Remove</button>
+    <div class="spacer"></div>
+    <button class="btn-secondary" id="btnRefreshSel" disabled>Refresh selected</button>
+    <button class="btn-danger" id="btnRefreshAll">REFRESH ALL</button>
+  </footer>
+
+  <div class="status-bar">
+    <span class="status-dot" id="statusDot"></span>
+    <span id="statusText">Ready.</span>
+  </div>
+
+  <!-- Add/Edit task dialog -->
+  <div class="modal" id="taskModal" hidden>
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 id="modalTitle">Add task</h2>
+        <button class="modal-close" id="modalClose" aria-label="Close">x</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-row">
+          <label>Task name <span class="hint">(no spaces, e.g. weekly-schedule)</span></label>
+          <input type="text" id="fName" autocomplete="off" />
+        </div>
+        <div class="form-row">
+          <label>Source folder <span class="hint">(where to copy FROM, never modified)</span></label>
+          <div class="path-row">
+            <input type="text" id="fSource" autocomplete="off" />
+            <button class="btn-secondary" id="fSourceBrowse">Browse...</button>
+          </div>
+        </div>
+        <div class="form-row">
+          <label class="checkbox-label">
+            <input type="checkbox" id="fOverride" />
+            Override default destination
+          </label>
+          <div class="path-row">
+            <input type="text" id="fDest" autocomplete="off" disabled />
+            <button class="btn-secondary" id="fDestBrowse" disabled>Browse...</button>
+          </div>
+        </div>
+        <div class="form-row">
+          <label>Refresh mode</label>
+          <label class="radio-label">
+            <input type="radio" name="fMode" value="replace" checked />
+            Replace - destination always matches source (overwrites local copy each refresh)
+          </label>
+          <label class="radio-label">
+            <input type="radio" name="fMode" value="archive" />
+            Archive - each refresh saved as a dated subfolder, old versions kept
+          </label>
+        </div>
+        <div class="separator"></div>
+        <div class="form-row">
+          <label>Schedule <span class="hint">(managed via Windows Task Scheduler)</span></label>
+          <div class="schedule-row">
+            <select id="fSchedType">
+              <option value="none">None</option>
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+            </select>
+            <label class="inline-label">Time (HH:MM)</label>
+            <input type="text" id="fSchedTime" value="08:00" disabled />
+            <label class="inline-label" id="lblDow">Day of week</label>
+            <select id="fSchedDow" disabled>
+              <option>SUN</option><option>MON</option><option>TUE</option>
+              <option>WED</option><option>THU</option><option>FRI</option><option>SAT</option>
+            </select>
+            <label class="inline-label" id="lblDom">Day of month</label>
+            <input type="number" id="fSchedDom" min="1" max="31" value="1" disabled />
+          </div>
+          <p class="hint-block">
+            User-scope only. Runs when you are logged in. If the machine is asleep at the scheduled time, the task fires next time you wake it.
+          </p>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" id="modalCancel">Cancel</button>
+        <button class="btn-accent" id="modalOk">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Update banner -->
+  <div class="update-banner" id="updateBanner" hidden>
+    <span id="updateBannerText">Update available</span>
+    <button class="btn-secondary" id="updateBannerDismiss">x</button>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

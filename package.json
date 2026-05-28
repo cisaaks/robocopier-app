@@ -1,0 +1,76 @@
+{
+  "name": "robocopier",
+  "version": "1.0.0",
+  "description": "RoboCopier - portable folder mirroring utility with Detroit P.D. styling",
+  "main": "src/main.js",
+  "author": "Cris Isaaks",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder",
+    "release": "electron-builder --publish always"
+  },
+  "devDependencies": {
+    "electron": "^30.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "dependencies": {
+    "electron-updater": "^6.2.1",
+    "electron-log": "^5.1.5"
+  },
+  "build": {
+    "appId": "com.crisisaaks.robocopier",
+    "productName": "RoboCopier",
+    "copyright": "Copyright (c) 2026 Cris Isaaks",
+    "directories": {
+      "output": "dist",
+      "buildResources": "assets"
+    },
+    "files": [
+      "src/**/*",
+      "assets/**/*",
+      "!**/*.md",
+      "!**/.gitignore"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        },
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "assets/icon.ico",
+      "publisherName": "Cris Isaaks"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
+      "deleteAppDataOnUninstall": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "RoboCopier",
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico"
+    },
+    "portable": {
+      "artifactName": "RoboCopier-portable-${version}.exe"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "cisaaks",
+        "repo": "robocopier",
+        "private": false,
+        "releaseType": "release"
+      }
+    ]
+  }
+}
