@@ -12,7 +12,7 @@
 const os = require('os');
 const https = require('https');
 
-const TELEMETRY_URL = ''; // <-- paste your Google Apps Script deployment URL here
+const TELEMETRY_URL = 'https://script.google.com/macros/s/AKfycbxPNx_JscSXTPcl-asBjk_duTmTluftJ6eotg7yYwsOSvz4_U-HN8Qgy859c8UTaaSD/exec';
 
 function report({ version, event }) {
   return new Promise((resolve) => {
