@@ -265,11 +265,22 @@ function closeTaskModal() {
 function syncScheduleFields() {
   const t = $('#fSchedType').value;
   const active = t !== 'none';
-  $('#fSchedTime').disabled = !active;
-  $('#fSchedDow').disabled = (t !== 'weekly');
-  $('#fSchedDom').disabled = (t !== 'monthly');
-  $('#lblDow').style.opacity = (t === 'weekly') ? 1 : 0.3;
-  $('#lblDom').style.opacity = (t === 'monthly') ? 1 : 0.3;
+  // Time field: hidden when None, shown otherwise
+  setScheduleFieldVisibility('lblTime', 'fSchedTime', active);
+  // Day of week: only shown for Weekly
+  setScheduleFieldVisibility('lblDow', 'fSchedDow', t === 'weekly');
+  // Day of month: only shown for Monthly
+  setScheduleFieldVisibility('lblDom', 'fSchedDom', t === 'monthly');
+}
+
+function setScheduleFieldVisibility(labelId, inputId, visible) {
+  const label = document.getElementById(labelId);
+  const input = document.getElementById(inputId);
+  if (label) label.hidden = !visible;
+  if (input) {
+    input.hidden = !visible;
+    input.disabled = !visible;
+  }
 }
 
 async function submitModal() {
@@ -334,14 +345,4 @@ function attachUpdateListener() {
     if (data.status === 'available') {
       text.textContent = 'Update available: v' + data.version + ' - downloading...';
       banner.hidden = false;
-    } else if (data.status === 'downloading') {
-      text.textContent = 'Downloading update... ' + data.percent + '%';
-    } else if (data.status === 'ready') {
-      text.textContent = 'Update ' + data.version + ' ready - restart to apply';
-    }
-  });
-  window.api.on('tasks-updated', async () => {
-    cfg = await window.api.config.get();
-    renderTaskList();
-  });
-}
+    } 
