@@ -20,8 +20,13 @@ const COLORS = {
 
 async function boot() {
   cfg = await window.api.config.get();
-  const v = await window.api.app.version();
-  $('#appVersion').textContent = 'v' + v;
+  try {
+    const v = await window.api.app.version();
+    if (v) $('#appVersion').textContent = 'v' + v;
+    else $('#appVersion').textContent = 'v?';
+  } catch (e) {
+    $('#appVersion').textContent = 'v?';
+  }
   renderDefaultDest();
   renderTaskList();
   attachHandlers();
@@ -348,6 +353,4 @@ async function submitModal() {
   setStatus(`${editingTaskName ? 'Updated' : 'Added'} task: ${name} | ${sm}`);
 }
 
-// ============================================================
-// Update banner
-// =============================================
+// 
