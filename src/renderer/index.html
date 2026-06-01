@@ -75,10 +75,11 @@
           <input type="text" id="fName" autocomplete="off" />
         </div>
         <div class="form-row">
-          <label>Source folder <span class="hint">(where to copy FROM, never modified)</span></label>
+          <label>Source <span class="hint">(folder or single file, never modified)</span></label>
           <div class="path-row">
             <input type="text" id="fSource" autocomplete="off" />
-            <button class="btn-secondary" id="fSourceBrowse">Browse...</button>
+            <button class="btn-secondary" id="fSourceBrowse">Folder...</button>
+            <button class="btn-secondary" id="fSourceBrowseFile">File...</button>
           </div>
         </div>
         <div class="form-row">
@@ -170,4 +171,6 @@
     <button class="btn-secondary" id="updateBannerDismiss">x</button>
   </div>
 
-  <script src="renderer.js"></script
+  <script src="renderer.js"></script>
+</body>
+</html>

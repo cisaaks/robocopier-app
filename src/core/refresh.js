@@ -79,6 +79,80 @@ async function runTask(task, config, interactive) {
     return { success: false, message: `Source not found or unreachable: ${task.source}` };
   }
 
+  // Auto-detect whether the source is a single file or a folder.
+  let srcStat;
+  try { srcStat = fs.statSync(task.source); }
+  catch (e) { return { success: false, message: `Cannot read source: ${e.message}` }; }
+
+  if (srcStat.isFile()) {
+    return await runFileTask(task, config, srcStat);
+  } else if (srcStat.isDirectory()) {
+    return await runFolderTask(task, config, interactive);
+  } else {
+    return { success: false, message: `Source is neither a file nor a folder: ${task.source}` };
+  }
+}
+
+// Single-file source: just copy that one file, no size scan needed
+async function runFileTask(task, config, srcStat) {
+  const filename = path.basename(task.source);
+  const destBase = getTaskDestination(task, config);
+  const mode = task.mode || 'replace';
+
+  // Pick a destination location
+  let destDir;
+  if (mode === 'archive') {
+    destDir = path.join(destBase, timestamp());
+  } else {
+    destDir = destBase;
+  }
+
+  try {
+    fs.mkdirSync(destDir, { recursive: true });
+  } catch (e) {
+    return { success: false, message: `Could not create destination '${destDir}': ${e.message}` };
+  }
+
+  const destFile = path.join(destDir, filename);
+
+  // Skip copy if destination already has identical content (size + mtime match at second precision)
+  if (mode === 'replace' && fs.existsSync(destFile)) {
+    try {
+      const destStat = fs.statSync(destFile);
+      const srcSec = Math.floor(srcStat.mtimeMs / 1000);
+      const destSec = Math.floor(destStat.mtimeMs / 1000);
+      if (destStat.size === srcStat.size && srcSec === destSec) {
+        task.lastRefreshed = nowString();
+        return { success: true, message: `Unchanged (${formatBytes(srcStat.size)})`, fileCount: 1, sizeText: formatBytes(srcStat.size) };
+      }
+    } catch {}
+  }
+
+  try {
+    fs.copyFileSync(task.source, destFile);
+    // Preserve mtime so future change-detection works
+    fs.utimesSync(destFile, srcStat.atime, srcStat.mtime);
+  } catch (e) {
+    return { success: false, message: `Copy failed: ${e.message}` };
+  }
+
+  // Write marker
+  try {
+    fs.writeFileSync(
+      path.join(destDir, 'last-refreshed.txt'),
+      `Refreshed: ${nowString()}\nSource:    ${task.source}\nMode:      ${mode}\nFile:      ${filename} (${formatBytes(srcStat.size)})\n`,
+      'utf8'
+    );
+  } catch {}
+
+  task.lastRefreshed = nowString();
+  task.lastSize = formatBytes(srcStat.size);
+  task.lastFileCount = 1;
+  return { success: true, message: `Copied ${filename} (${formatBytes(srcStat.size)}) to ${destDir}`, fileCount: 1, sizeText: formatBytes(srcStat.size) };
+}
+
+// Folder source: original behavior with size scan + robocopy
+async function runFolderTask(task, config, interactive) {
   const warnFiles = config.warnFileCount || 200;
   const warnMB    = config.warnSizeMB || 200;
   const hardFiles = warnFiles * 10;
@@ -93,14 +167,6 @@ async function runTask(task, config, interactive) {
       success: false,
       message: `Source is too large to copy. Scanned ${stats.fileCount}+ files / ${sizeText} before hitting hard limit (>${hardFiles} files or ${warnMB * 10} MB). This tool is for individual files and small folders. To override, raise warnFileCount or warnSizeMB.`,
     };
-  }
-
-  if (stats.fileCount > warnFiles || stats.totalSize > warnBytes) {
-    if (interactive) {
-      // Renderer will handle the confirmation prompt before calling refresh
-      // For now, we just include the warning info in the result
-    }
-    // We proceed - confirmation should already have been done in UI
   }
 
   const destBase = getTaskDestination(task, config);
@@ -122,7 +188,6 @@ async function runTask(task, config, interactive) {
   if (typeof rc !== 'number') return { success: false, message: 'robocopy failed to start' };
   if (rc >= 8) return { success: false, message: `robocopy failed (exit ${rc})` };
 
-  // Write marker
   try {
     fs.writeFileSync(
       path.join(dest, 'last-refreshed.txt'),

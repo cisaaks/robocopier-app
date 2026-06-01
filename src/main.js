@@ -201,6 +201,15 @@ function registerIpc() {
     return r.filePaths[0];
   });
 
+  ipcMain.handle('dialog:pick-file', async (_e, defaultPath) => {
+    const r = await dialog.showOpenDialog(mainWindow, {
+      properties: ['openFile'],
+      defaultPath: defaultPath || undefined,
+    });
+    if (r.canceled || !r.filePaths.length) return null;
+    return r.filePaths[0];
+  });
+
   ipcMain.handle('dialog:confirm', async (_e, message, title) => {
     const r = await dialog.showMessageBox(mainWindow, {
       type: 'question',
@@ -309,4 +318,33 @@ async function runCliMode() {
     if (!r.success) anyFail = true;
   }
   configStore.save();
-  Telemetry.report({ version: APP_VERSION, 
+  Telemetry.report({ version: APP_VERSION, event: 'cli-refresh' }).catch(() => {});
+  app.exit(anyFail ? 1 : 0);
+}
+
+// ============================================================
+// App lifecycle
+// ============================================================
+
+app.on('ready', () => {
+  if (isCliMode()) {
+    runCliMode().catch(e => { log.error(e); app.exit(1); });
+    return;
+  }
+
+  configStore = new ConfigStore(getConfigPath());
+
+  createSplash();
+  setTimeout(createMainWindow, 1800);
+  registerIpc();
+  if (!isDev) registerAutoUpdater();
+
+  // Fire telemetry on launch (non-blocking)
+  Telemetry.report({ version: APP_VERSION, event: 'launch' }).catch(e => log.warn('telemetry:', e?.message));
+});
+
+// Standard Windows app behavior: when all windows close, quit the app.
+// No tray to keep alive, no fancy minimize-on-close behavior.
+app.on('window-all-closed', () => {
+  app.quit();
+});

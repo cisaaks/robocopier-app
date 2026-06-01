@@ -17,6 +17,7 @@ contextBridge.exposeInMainWorld('api', {
   },
   dialog: {
     pickFolder: (defaultPath) => ipcRenderer.invoke('dialog:pick-folder', defaultPath),
+    pickFile:   (defaultPath) => ipcRenderer.invoke('dialog:pick-file', defaultPath),
     confirm:    (message, title) => ipcRenderer.invoke('dialog:confirm', message, title),
     warn:       (message, title) => ipcRenderer.invoke('dialog:warn', message, title),
   },

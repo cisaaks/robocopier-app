@@ -151,6 +151,10 @@ function attachHandlers() {
     const p = await window.api.dialog.pickFolder($('#fSource').value);
     if (p) $('#fSource').value = p;
   });
+  $('#fSourceBrowseFile').addEventListener('click', async () => {
+    const p = await window.api.dialog.pickFile($('#fSource').value);
+    if (p) $('#fSource').value = p;
+  });
   $('#fDestBrowse').addEventListener('click', async () => {
     const p = await window.api.dialog.pickFolder($('#fDest').value);
     if (p) $('#fDest').value = p;
@@ -345,4 +349,14 @@ function attachUpdateListener() {
     if (data.status === 'available') {
       text.textContent = 'Update available: v' + data.version + ' - downloading...';
       banner.hidden = false;
-    } 
+    } else if (data.status === 'downloading') {
+      text.textContent = 'Downloading update... ' + data.percent + '%';
+    } else if (data.status === 'ready') {
+      text.textContent = 'Update ' + data.version + ' ready - restart to apply';
+    }
+  });
+  window.api.on('tasks-updated', async () => {
+    cfg = await window.api.config.get();
+    renderTaskList();
+  });
+}
